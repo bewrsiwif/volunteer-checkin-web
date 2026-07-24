@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026中元普渡超薦祈福大法會義工點名系統</title>
+  <!-- Google Fonts & Material Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+  <!-- 同步狀態提示 -->
+  <div id="sync-status" class="sync-status">
+    <span class="sync-dot" id="sync-dot"></span>
+    <span id="sync-text">雲端同步中...</span>
+  </div>
+
+  <div class="app-layout">
+    <!-- 頂部導覽列 Header -->
+    <header class="app-header">
+      <div class="header-logo">
+        <span class="material-icons logo-icon">check_circle</span>
+        <div class="logo-text">
+          <span class="logo-subtitle">2026中元普渡超薦祈福大法會</span>
+          <h1 class="logo-title">義工報到點名系統</h1>
+        </div>
+      </div>
+      
+      <div class="header-actions">
+        <!-- 重新載入按鈕 -->
+        <button id="btn-reload" class="btn-icon" title="重新整理資料">
+          <span class="material-icons">refresh</span>
+        </button>
+        <!-- 時間顯示 -->
+        <div id="header-time" class="header-time">--:--:--</div>
+      </div>
+    </header>
+
+    <!-- 載入中畫面 -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="spinner"></div>
+      <p>正在載入雲端義工名單與最新統計...</p>
+    </div>
+
+    <!-- 主要內容區 -->
+    <main class="app-main hidden" id="main-content">
+      
+      <!-- 左側控制面板 -->
+      <section class="sidebar-panel">
+        
+        <!-- 全域統計面板 -->
+        <div class="card overview-card">
+          <h2 class="card-title">
+            <span class="material-icons">analytics</span>
+            法會出席總覽
+          </h2>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-value" id="stat-total-count">0</span>
+              <span class="stat-label">義工總人數</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value text-emerald" id="stat-present-822">0</span>
+              <span class="stat-label">8/22 報到率</span>
+              <div class="progress-bar-container">
+                <div class="progress-bar bg-emerald" id="progress-822" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value text-cyan" id="stat-present-823">0</span>
+              <span class="stat-label">8/23 報到率</span>
+              <div class="progress-bar-container">
+                <div class="progress-bar bg-cyan" id="progress-823" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 大組選擇列表 -->
+        <div class="card groups-card">
+          <h2 class="card-title">
+            <span class="material-icons">groups</span>
+            選擇回報組別
+          </h2>
+          <div class="group-list" id="group-list-container">
+            <!-- 動態渲染大組 -->
+          </div>
+        </div>
+
+        <!-- 即時操作日誌 (Live Log) -->
+        <div class="card log-card">
+          <h2 class="card-title">
+            <span class="material-icons">history</span>
+            最新點名日誌
+          </h2>
+          <div class="log-list" id="log-list-container">
+            <div class="log-empty">尚無最近操作紀錄</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右側工作面板 -->
+      <section class="workspace-panel">
+        
+        <!-- 空白引導狀態 -->
+        <div id="workspace-empty" class="workspace-empty">
+          <div class="empty-glow">
+            <span class="material-icons empty-icon">assignment_ind</span>
+          </div>
+          <h3>請選擇大組別</h3>
+          <p>請點擊左側「選擇回報組別」清單，開始為該組別進行報到登記、用餐微調或現場報名。</p>
+        </div>
+
+        <!-- 點名工作板 -->
+        <div id="checkin-board" class="checkin-board hidden">
+          
+          <!-- 工作板頂部 -->
+          <div class="board-header">
+            <div class="board-header-left">
+              <h2 id="board-title" class="board-title">香積組 點名板</h2>
+              <span id="board-badge" class="badge">香積組</span>
+            </div>
+            <div class="board-header-right">
+              <button id="btn-export" class="btn btn-secondary">
+                <span class="material-icons">download</span>
+                匯出統計表
+              </button>
+            </div>
+          </div>
+
+          <!-- 日期切換 Tab -->
+          <div class="day-tabs">
+            <button id="tab-822" class="tab-btn active">
+              <span class="tab-date">8/22</span>
+              <span class="tab-day">星期六</span>
+            </button>
+            <button id="tab-823" class="tab-btn">
+              <span class="tab-date">8/23</span>
+              <span class="tab-day">星期日</span>
+            </button>
+          </div>
+
+          <!-- 工具與篩選列 -->
+          <div class="filter-bar">
+            <!-- 搜尋框 -->
+            <div class="search-box">
+              <span class="material-icons search-icon">search</span>
+              <input type="text" id="member-search" placeholder="搜尋姓名、電話或UID...">
+            </div>
+            
+            <!-- 篩選器組 -->
+            <div class="filters">
+              <div class="filter-item">
+                <label for="subgroup-select">小組別：</label>
+                <select id="subgroup-select">
+                  <option value="">全部小組</option>
+                </select>
+              </div>
+
+              <div class="filter-item">
+                <label for="status-select">狀態：</label>
+                <select id="status-select">
+                  <option value="">全部狀態</option>
+                  <option value="present">已報到</option>
+                  <option value="absent">未報到</option>
+                  <option value="leave">已請假</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 人數摘要 -->
+          <div class="board-summary">
+            <div>
+              目前名單：<strong id="board-filtered-count">0</strong> 人
+            </div>
+            <div>
+              當日已報到：<strong id="board-present-count" class="text-emerald">0</strong> / <span id="board-total-count">0</span> 人
+              (<span id="board-present-pct">0%</span>)
+            </div>
+          </div>
+
+          <!-- 志工卡片網格 -->
+          <div class="member-grid" id="member-list-container">
+            <!-- 動態渲染志工卡片 -->
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 現場報名浮動按鈕 (當選取大組時顯示) -->
+    <div id="float-action-container" class="float-action-container hidden">
+      <button id="btn-float-register" class="btn btn-primary btn-float">
+        <span class="material-icons">person_add</span>
+        現場報名
+      </button>
+    </div>
+  </div>
+
+  <!-- 彈窗 1：現場新增志工 Modal -->
+  <div id="register-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>
+          <span class="material-icons text-teal">person_add</span>
+          現場新增義工
+        </h3>
+        <button class="btn-close" onclick="closeRegisterModal()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <form id="register-form">
+        <div class="form-group">
+          <label class="form-label">姓名 <span class="required">*</span></label>
+          <input type="text" id="reg-name" required placeholder="請輸入義工姓名">
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">大組 (已鎖定)</label>
+            <input type="text" id="reg-group" readonly class="readonly">
+          </div>
+          <div class="form-group">
+            <label class="form-label">小組別</label>
+            <input type="text" id="reg-subgroup" placeholder="例如：切菜組、第一組">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label">聯絡電話</label>
+          <input type="tel" id="reg-phone" placeholder="例如：0912345678">
+        </div>
+
+        <div class="form-group status-preset">
+          <span class="preset-title">直接完成今日狀態設定：</span>
+          <div class="preset-checkboxes">
+            <label class="checkbox-label">
+              <input type="checkbox" id="reg-checkin-now" checked>
+              <span>完成今日報到</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="reg-lunch-now" checked>
+              <span>登記今日午餐</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeRegisterModal()">取消</button>
+          <button type="submit" class="btn btn-primary">送出登記</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 彈窗 2：修改用餐狀態 Modal -->
+  <div id="details-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>
+          <span class="material-icons text-cyan">edit</span>
+          修改詳細狀態
+        </h3>
+        <button class="btn-close" onclick="closeDetailsModal()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="modal-body-volunteer-info">
+        <div id="edit-vol-name" class="vol-info-name">張三</div>
+        <div id="edit-vol-uid" class="vol-info-uid">UID: A0001</div>
+      </div>
+      <form id="details-form">
+        <input type="hidden" id="edit-uid">
+        
+        <!-- 用餐開關容器 -->
+        <div class="form-group">
+          <label class="form-label">用餐登記：</label>
+          <div id="meals-switches-container" class="switches-list">
+            <!-- 動態渲染用餐 checkbox -->
+          </div>
+        </div>
+
+        <!-- 其他資訊輸入框容器 -->
+        <div class="form-group" id="other-inputs-wrapper">
+          <label class="form-label">其他資訊：</label>
+          <div id="other-inputs-container" class="inputs-list">
+            <!-- 動態渲染其他 input -->
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeDetailsModal()">取消</button>
+          <button type="submit" class="btn btn-primary">儲存修改</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
