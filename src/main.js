@@ -1,5 +1,5 @@
 // 填入您剛才複製的 Web App URL
-const API_URL = "https://script.google.com/macros/s/您的部署ID/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbzAaG-lHvKI0F4lJMd5hnTfXP5-0Wva3vfcz0EjBeDEq-Ynt8ZAAEZN_dylJHan15oz/exec"; 
 
 // 1. 取得名單的函數
 async function fetchVolunteers() {
