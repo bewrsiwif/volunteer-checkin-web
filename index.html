@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>義工報到與用餐統計系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<div class="container py-4">
+  <h2 class="text-center mb-4">義工現場報到系統</h2>
+
+  <!-- 狀態與日期切換 -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-bold">選擇報到日期</label>
+          <select id="dateSelect" class="form-select form-select-lg">
+            <option value="8/22">8/22 (星期六)</option>
+            <option value="8/23">8/23 (星期日)</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-bold">搜尋義工姓名</label>
+          <input type="text" id="searchInput" class="form-control form-select-lg" placeholder="輸入姓名關鍵字...">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 組別篩選 -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-6">
+      <select id="mainGroupFilter" class="form-select">
+        <option value="">-- 所有大組 --</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <select id="subGroupFilter" class="form-select">
+        <option value="">-- 所有小組 --</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 操作按鈕：現場新增義工 -->
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <button class="btn btn-outline-primary" onclick="loadVolunteers()">🔄 重新整理資料</button>
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addModal">➕ 現場新增義工</button>
+  </div>
+
+  <!-- 義工名單清單 -->
+  <div class="table-responsive bg-white rounded shadow-sm">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-dark">
+        <tr>
+          <th>序號</th>
+          <th>姓名</th>
+          <th>大組 / 小組</th>
+          <th>報到狀態</th>
+          <th>用餐選擇</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="volunteerList">
+        <tr><td colspan="6" class="text-center py-4">資料載入中...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 新增義工 Modal -->
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">現場新增義工並報到</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addForm">
+          <div class="mb-3">
+            <label class="form-label">姓名</label>
+            <input type="text" id="addName" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">大組</label>
+            <input type="text" id="addMainGroup" class="form-control" placeholder="例如：機動組" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">小組</label>
+            <input type="text" id="addSubGroup" class="form-control" placeholder="例如：一小組" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">今日用餐選擇</label>
+            <select id="addMeal" class="form-select">
+              <option value="便當">便當</option>
+              <option value="餐券">餐券</option>
+              <option value="不用餐">不用餐</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary w-100" onclick="submitNewVolunteer()">新增並完成報到</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 🔴 請替換為您部署 Apps Script 後取得的 Web App URL
+  const GAS_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL"; 
+  
+  let allVolunteers = [];
+
+  document.addEventListener("DOMContentLoaded", () => {
+    loadVolunteers();
+    document.getElementById("dateSelect").addEventListener("change", renderList);
+    document.getElementById("searchInput").addEventListener("input", renderList);
+    document.getElementById("mainGroupFilter").addEventListener("change", filterSubGroups);
+    document.getElementById("subGroupFilter").addEventListener("change", renderList);
+  });
+
+  function loadVolunteers() {
+    fetch(`${GAS_URL}?action=getVolunteers`)
+      .then(res => res.json())
+      .then(res => {
+        if(res.status === 'success') {
+          allVolunteers = res.data;
+          setupGroupFilters();
+          renderList();
+        }
+      });
+  }
+
+  function setupGroupFilters() {
+    const mainGroups = [...new Set(allVolunteers.map(v => v.groupMain))];
+    const mainSelect = document.getElementById("mainGroupFilter");
+    mainSelect.innerHTML = '<option value="">-- 所有大組 --</option>' + 
+      mainGroups.map(g => `<option value="${g}">${g}</option>`).join('');
+    filterSubGroups();
+  }
+
+  function filterSubGroups() {
+    const selectedMain = document.getElementById("mainGroupFilter").value;
+    const subSelect = document.getElementById("subGroupFilter");
+    
+    let subGroups = allVolunteers;
+    if (selectedMain) {
+      subGroups = subGroups.filter(v => v.groupMain === selectedMain);
+    }
+    const subGroupNames = [...new Set(subGroups.map(v => v.groupSub))];
+    
+    subSelect.innerHTML = '<option value="">-- 所有小組 --</option>' + 
+      subGroupNames.map(g => `<option value="${g}">${g}</option>`).join('');
+    
+    renderList();
+  }
+
+  function renderList() {
+    const date = document.getElementById("dateSelect").value;
+    const search = document.getElementById("searchInput").value.trim().toLowerCase();
+    const mainFilter = document.getElementById("mainGroupFilter").value;
+    const subFilter = document.getElementById("subGroupFilter").value;
+
+    const filtered = allVolunteers.filter(v => {
+      const matchName = v.name.toLowerCase().includes(search);
+      const matchMain = !mainFilter || v.groupMain === mainFilter;
+      const matchSub = !subFilter || v.groupSub === subFilter;
+      return matchName && matchMain && matchSub;
+    });
+
+    const tbody = document.getElementById("volunteerList");
+    tbody.innerHTML = filtered.map(v => {
+      const isCheckIn = date === '8/22' ? v.checkIn822 === '已報到' : v.checkIn823 === '已報到';
+      const currentMeal = date === '8/22' ? v.meal822 : v.meal823;
+
+      return `
+        <tr>
+          <td>${v.id}</td>
+          <td class="fw-bold">${v.name}</td>
+          <td><span class="badge bg-secondary">${v.groupMain}</span> ${v.groupSub}</td>
+          <td>
+            <span class="badge ${isCheckIn ? 'bg-success' : 'bg-warning text-dark'}">
+              ${isCheckIn ? '已報到' : '未報到'}
+            </span>
+          </td>
+          <td>
+            <select class="form-select form-select-sm" id="meal_${v.rowIndex}">
+              <option value="便當" ${currentMeal === '便當' ? 'selected' : ''}>便當</option>
+              <option value="餐券" ${currentMeal === '餐券' ? 'selected' : ''}>餐券</option>
+              <option value="不用餐" ${currentMeal === '不用餐' ? 'selected' : ''}>不用餐</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn btn-sm ${isCheckIn ? 'btn-outline-danger' : 'btn-primary'}" 
+                    onclick="handleCheckIn(${v.rowIndex}, ${!isCheckIn})">
+              ${isCheckIn ? '取消報到' : '報到'}
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function handleCheckIn(rowIndex, checkInStatus) {
+    const date = document.getElementById("dateSelect").value;
+    const meal = document.getElementById(`meal_${rowIndex}`).value;
+
+    fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'checkIn',
+        rowIndex: rowIndex,
+        date: date,
+        checkIn: checkInStatus,
+        meal: meal
+      })
+    })
+    .then(res => res.json())
+    .then(res => {
+      if(res.status === 'success') {
+        loadVolunteers(); // 重新整理資料
+      }
+    });
+  }
+
+  function submitNewVolunteer() {
+    const date = document.getElementById("dateSelect").value;
+    const data = {
+      action: 'addVolunteer',
+      name: document.getElementById("addName").value,
+      groupMain: document.getElementById("addMainGroup").value,
+      groupSub: document.getElementById("addSubGroup").value,
+      meal: document.getElementById("addMeal").value,
+      date: date
+    };
+
+    if(!data.name || !data.groupMain || !data.groupSub) {
+      alert("請填寫完整資訊！");
+      return;
+    }
+
+    fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(res => {
+      if(res.status === 'success') {
+        alert("新增完成！");
+        bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+        document.getElementById("addForm").reset();
+        loadVolunteers();
+      }
+    });
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
