@@ -1,113 +1,167 @@
-<!DOCTYPE html>
+html_content = """<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2026中元超薦義工報到與用餐統計系統</title>
+  <title>義工報到與用餐統計系統</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    .header-card {
+      background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 2rem 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+    }
+    .card-custom {
+      border: none;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .table-container {
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .badge-id {
+      font-family: monospace;
+      font-size: 0.9em;
+      letter-spacing: 0.5px;
+    }
+  </style>
 </head>
-<body class="bg-light">
+<body>
 <div class="container py-4">
-  <h2 class="text-center mb-4">2026中元超薦義工現場報到系統</h2>
+  <!-- 頁面標頭 -->
+  <div class="header-card text-center">
+    <h2 class="fw-bold mb-2">義工現場報到與用餐管理系統</h2>
+    <p class="mb-0 opacity-75">8/22 - 8/23 活動現場點名、用餐統計與即時狀態管理</p>
+  </div>
 
-  <!-- 狀態與日期切換 -->
-  <div class="card mb-4 shadow-sm">
-    <div class="card-body">
+  <!-- 狀態與搜尋選單 -->
+  <div class="card card-custom mb-4">
+    <div class="card-body p-4">
       <div class="row g-3">
-        <div class="col-md-6">
-          <label class="form-label fw-bold">選擇報到日期</label>
+        <div class="col-md-5">
+          <label class="form-label fw-bold text-secondary">📅 選擇報到日期</label>
           <select id="dateSelect" class="form-select form-select-lg">
             <option value="8/22">8/22 (星期六)</option>
             <option value="8/23">8/23 (星期日)</option>
           </select>
         </div>
-        <div class="col-md-6">
-          <label class="form-label fw-bold">搜尋義工姓名</label>
-          <input type="text" id="searchInput" class="form-control form-select-lg" placeholder="輸入姓名關鍵字...">
+        <div class="col-md-7">
+          <label class="form-label fw-bold text-secondary">🔍 關鍵字搜尋（序號或姓名）</label>
+          <input type="text" id="searchInput" class="form-control form-select-lg" placeholder="輸入序號 (如 V001) 或義工姓名...">
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 組別篩選 -->
+  <!-- 組別篩選區塊 -->
   <div class="row g-3 mb-3">
     <div class="col-md-6">
-      <select id="mainGroupFilter" class="form-select">
-        <option value="">-- 所有大組 --</option>
-      </select>
+      <div class="input-group">
+        <span class="input-group-text bg-white fw-bold text-secondary">大組</span>
+        <select id="mainGroupFilter" class="form-select">
+          <option value="">-- 所有大組 --</option>
+        </select>
+      </div>
     </div>
     <div class="col-md-6">
-      <select id="subGroupFilter" class="form-select">
-        <option value="">-- 所有小組 --</option>
-      </select>
+      <div class="input-group">
+        <span class="input-group-text bg-white fw-bold text-secondary">小組</span>
+        <select id="subGroupFilter" class="form-select">
+          <option value="">-- 所有小組 --</option>
+        </select>
+      </div>
     </div>
   </div>
 
-  <!-- 操作按鈕：現場新增義工 -->
+  <!-- 操作按鈕列 -->
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <button class="btn btn-outline-primary" onclick="loadVolunteers()">🔄 重新整理資料</button>
-    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addModal">➕ 現場新增義工</button>
+    <button class="btn btn-outline-secondary" onclick="loadVolunteers()">
+      🔄 重新整理資料
+    </button>
+    <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#addModal">
+      ➕ 現場新增義工
+    </button>
   </div>
 
-  <!-- 義工名單清單 -->
-  <div class="table-responsive bg-white rounded shadow-sm">
+  <!-- 義工名單表格 -->
+  <div class="table-responsive bg-white table-container mb-4">
     <table class="table table-hover align-middle mb-0">
       <thead class="table-dark">
         <tr>
-          <th>序號</th>
-          <th>姓名</th>
-          <th>大組 / 小組</th>
-          <th>報到狀態</th>
-          <th>用餐選擇</th>
-          <th>操作</th>
+          <th style="width: 12%;">序號</th>
+          <th style="width: 18%;">姓名</th>
+          <th style="width: 25%;">大組 / 小組</th>
+          <th style="width: 15%;">報到狀態</th>
+          <th style="width: 18%;">用餐選擇</th>
+          <th style="width: 12%; text-align: center;">操作</th>
         </tr>
       </thead>
       <tbody id="volunteerList">
-        <tr><td colspan="6" class="text-center py-4">資料載入中...</td></tr>
+        <tr>
+          <td colspan="6" class="text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+            資料載入中，請稍候...
+          </td>
+        </tr>
       </tbody>
     </table>
   </div>
 </div>
 
 <!-- 新增義工 Modal -->
-<div class="modal fade" id="addModal" tabindex="-1">
-  <div class="modal-dialog">
+<div class="modal fade" id="addModal" tabindex="-1" aria-labelledby="addModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">現場新增義工並報到</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title fw-bold" id="addModalLabel">➕ 現場新增義工資料</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body p-4">
         <form id="addForm">
           <div class="mb-3">
-            <label class="form-label">姓名</label>
-            <input type="text" id="addName" class="form-control" required>
+            <label class="form-label fw-bold">義工姓名 <span class="text-danger">*</span></label>
+            <input type="text" id="addName" class="form-control" placeholder="請輸入姓名" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">大組</label>
+            <label class="form-label fw-bold">大組名稱 <span class="text-danger">*</span></label>
             <input type="text" id="addMainGroup" class="form-control" placeholder="例如：機動組" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">小組</label>
-            <input type="text" id="addSubGroup" class="form-control" placeholder="例如：一小組" required>
+            <label class="form-label fw-bold">小組名稱 <span class="text-danger">*</span></label>
+            <input type="text" id="addSubGroup" class="form-control" placeholder="例如：第一小組" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">今日用餐選擇</label>
+            <label class="form-label fw-bold">今日用餐選擇</label>
             <select id="addMeal" class="form-select">
               <option value="便當">便當</option>
               <option value="餐券">餐券</option>
               <option value="不用餐">不用餐</option>
             </select>
           </div>
-          <button type="button" class="btn btn-primary w-100" onclick="submitNewVolunteer()">新增並完成報到</button>
+          <div class="alert alert-info py-2 small mb-0">
+            ℹ️ 補登記後將自動設定為今日「已報到」狀態並寫回總表。
+          </div>
         </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-success fw-bold" onclick="submitNewVolunteer()">新增並完成報到</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-  // 🔴 請替換為您部署 Apps Script 後取得的 Web App URL
+  // 🔴 請替換為您部署 Google Apps Script 後取得的 Web App URL
   const GAS_URL = "https://script.google.com/macros/s/AKfycbwXHy8C5vCefgrSC9f9Oc7siDfkhu0ulRdLQPf3hr5XS1-IAzzz0JN9IlywMukBOCpy/exec"; 
   
   let allVolunteers = [];
@@ -120,7 +174,17 @@
     document.getElementById("subGroupFilter").addEventListener("change", renderList);
   });
 
+  // 從 Google Apps Script 載入義工名單
   function loadVolunteers() {
+    const tbody = document.getElementById("volunteerList");
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="text-center py-5 text-muted">
+          <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+          正在讀取最新義工資料...
+        </td>
+      </tr>`;
+
     fetch(`${GAS_URL}?action=getVolunteers`)
       .then(res => res.json())
       .then(res => {
@@ -128,18 +192,25 @@
           allVolunteers = res.data;
           setupGroupFilters();
           renderList();
+        } else {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">資料讀取失敗：${res.message || '未知錯誤'}</td></tr>`;
         }
+      })
+      .catch(err => {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">連線錯誤，請確認網路連線或 Apps Script URL 是否正確。</td></tr>`;
       });
   }
 
+  // 設定大組下拉選單
   function setupGroupFilters() {
-    const mainGroups = [...new Set(allVolunteers.map(v => v.groupMain))];
+    const mainGroups = [...new Set(allVolunteers.map(v => v.groupMain))].filter(Boolean);
     const mainSelect = document.getElementById("mainGroupFilter");
     mainSelect.innerHTML = '<option value="">-- 所有大組 --</option>' + 
       mainGroups.map(g => `<option value="${g}">${g}</option>`).join('');
     filterSubGroups();
   }
 
+  // 根據選擇的大組動態更新小組選單
   function filterSubGroups() {
     const selectedMain = document.getElementById("mainGroupFilter").value;
     const subSelect = document.getElementById("subGroupFilter");
@@ -148,7 +219,7 @@
     if (selectedMain) {
       subGroups = subGroups.filter(v => v.groupMain === selectedMain);
     }
-    const subGroupNames = [...new Set(subGroups.map(v => v.groupSub))];
+    const subGroupNames = [...new Set(subGroups.map(v => v.groupSub))].filter(Boolean);
     
     subSelect.innerHTML = '<option value="">-- 所有小組 --</option>' + 
       subGroupNames.map(g => `<option value="${g}">${g}</option>`).join('');
@@ -156,6 +227,7 @@
     renderList();
   }
 
+  // 渲染/過濾義工表格清單
   function renderList() {
     const date = document.getElementById("dateSelect").value;
     const search = document.getElementById("searchInput").value.trim().toLowerCase();
@@ -163,22 +235,32 @@
     const subFilter = document.getElementById("subGroupFilter").value;
 
     const filtered = allVolunteers.filter(v => {
-      const matchName = v.name.toLowerCase().includes(search);
+      // 🟢 序號 (id) 與姓名 (name) 雙向搜尋支援
+      const matchSearch = String(v.id).toLowerCase().includes(search) || 
+                          v.name.toLowerCase().includes(search);
+                          
       const matchMain = !mainFilter || v.groupMain === mainFilter;
       const matchSub = !subFilter || v.groupSub === subFilter;
-      return matchName && matchMain && matchSub;
+      
+      return matchSearch && matchMain && matchSub;
     });
 
     const tbody = document.getElementById("volunteerList");
+    
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted">查無符合條件的義工資料</td></tr>';
+      return;
+    }
+
     tbody.innerHTML = filtered.map(v => {
       const isCheckIn = date === '8/22' ? v.checkIn822 === '已報到' : v.checkIn823 === '已報到';
       const currentMeal = date === '8/22' ? v.meal822 : v.meal823;
 
       return `
         <tr>
-          <td>${v.id}</td>
+          <td><span class="badge bg-light text-dark border badge-id">${v.id}</span></td>
           <td class="fw-bold">${v.name}</td>
-          <td><span class="badge bg-secondary">${v.groupMain}</span> ${v.groupSub}</td>
+          <td><span class="badge bg-secondary me-1">${v.groupMain}</span><span class="text-muted small">${v.groupSub}</span></td>
           <td>
             <span class="badge ${isCheckIn ? 'bg-success' : 'bg-warning text-dark'}">
               ${isCheckIn ? '已報到' : '未報到'}
@@ -191,8 +273,8 @@
               <option value="不用餐" ${currentMeal === '不用餐' ? 'selected' : ''}>不用餐</option>
             </select>
           </td>
-          <td>
-            <button class="btn btn-sm ${isCheckIn ? 'btn-outline-danger' : 'btn-primary'}" 
+          <td class="text-center">
+            <button class="btn btn-sm ${isCheckIn ? 'btn-outline-danger' : 'btn-primary'} px-3" 
                     onclick="handleCheckIn(${v.rowIndex}, ${!isCheckIn})">
               ${isCheckIn ? '取消報到' : '報到'}
             </button>
@@ -202,6 +284,7 @@
     }).join('');
   }
 
+  // 處理點擊報到 / 取消報到
   function handleCheckIn(rowIndex, checkInStatus) {
     const date = document.getElementById("dateSelect").value;
     const meal = document.getElementById(`meal_${rowIndex}`).value;
@@ -219,24 +302,28 @@
     .then(res => res.json())
     .then(res => {
       if(res.status === 'success') {
-        loadVolunteers(); // 重新整理資料
+        loadVolunteers();
+      } else {
+        alert("更新失敗：" + (res.message || "請重試"));
       }
-    });
+    })
+    .catch(err => alert("連線失敗，請檢查網路"));
   }
 
+  // 處理現場新增義工
   function submitNewVolunteer() {
     const date = document.getElementById("dateSelect").value;
     const data = {
       action: 'addVolunteer',
-      name: document.getElementById("addName").value,
-      groupMain: document.getElementById("addMainGroup").value,
-      groupSub: document.getElementById("addSubGroup").value,
+      name: document.getElementById("addName").value.trim(),
+      groupMain: document.getElementById("addMainGroup").value.trim(),
+      groupSub: document.getElementById("addSubGroup").value.trim(),
       meal: document.getElementById("addMeal").value,
       date: date
     };
 
     if(!data.name || !data.groupMain || !data.groupSub) {
-      alert("請填寫完整資訊！");
+      alert("請填寫所有必填欄位！");
       return;
     }
 
@@ -247,14 +334,23 @@
     .then(res => res.json())
     .then(res => {
       if(res.status === 'success') {
-        alert("新增完成！");
+        alert(`新增成功！已自動給予序號：${res.id}`);
         bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
         document.getElementById("addForm").reset();
         loadVolunteers();
+      } else {
+        alert("新增失敗：" + (res.message || "請重試"));
       }
-    });
+    })
+    .catch(err => alert("連線失敗，請檢查網路"));
   }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
+"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print("index.html successfully created.")
