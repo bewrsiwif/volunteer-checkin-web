@@ -1,4 +1,4 @@
-html_content = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
@@ -85,7 +85,7 @@ html_content = """<!DOCTYPE html>
   <!-- 操作按鈕列 -->
   <div class="d-flex justify-content-between align-items-center mb-3">
     <button class="btn btn-outline-secondary" onclick="loadVolunteers()">
-      🔄 重新整理資料
+      🔄 手動整理資料
     </button>
     <button class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#addModal">
       ➕ 現場新增義工
@@ -174,7 +174,7 @@ html_content = """<!DOCTYPE html>
     document.getElementById("subGroupFilter").addEventListener("change", renderList);
   });
 
-  // 從 Google Apps Script 載入義工名單
+  // 從 Google Apps Script 載入全量資料（僅在初始載入或點擊手動重新整理時執行）
   function loadVolunteers() {
     const tbody = document.getElementById("volunteerList");
     tbody.innerHTML = `
@@ -201,18 +201,20 @@ html_content = """<!DOCTYPE html>
       });
   }
 
-  // 設定大組下拉選單
   function setupGroupFilters() {
+    const currentMain = document.getElementById("mainGroupFilter").value;
     const mainGroups = [...new Set(allVolunteers.map(v => v.groupMain))].filter(Boolean);
     const mainSelect = document.getElementById("mainGroupFilter");
+    
     mainSelect.innerHTML = '<option value="">-- 所有大組 --</option>' + 
-      mainGroups.map(g => `<option value="${g}">${g}</option>`).join('');
-    filterSubGroups();
+      mainGroups.map(g => `<option value="${g}" ${g === currentMain ? 'selected' : ''}>${g}</option>`).join('');
+      
+    filterSubGroups(true); // 傳入 true 表示維持既有小組選取狀態
   }
 
-  // 根據選擇的大組動態更新小組選單
-  function filterSubGroups() {
+  function filterSubGroups(keepSubSelection = false) {
     const selectedMain = document.getElementById("mainGroupFilter").value;
+    const currentSub = document.getElementById("subGroupFilter").value;
     const subSelect = document.getElementById("subGroupFilter");
     
     let subGroups = allVolunteers;
@@ -221,13 +223,13 @@ html_content = """<!DOCTYPE html>
     }
     const subGroupNames = [...new Set(subGroups.map(v => v.groupSub))].filter(Boolean);
     
+    const targetSub = keepSubSelection ? currentSub : '';
     subSelect.innerHTML = '<option value="">-- 所有小組 --</option>' + 
-      subGroupNames.map(g => `<option value="${g}">${g}</option>`).join('');
+      subGroupNames.map(g => `<option value="${g}" ${g === targetSub ? 'selected' : ''}>${g}</option>`).join('');
     
     renderList();
   }
 
-  // 渲染/過濾義工表格清單
   function renderList() {
     const date = document.getElementById("dateSelect").value;
     const search = document.getElementById("searchInput").value.trim().toLowerCase();
@@ -235,7 +237,6 @@ html_content = """<!DOCTYPE html>
     const subFilter = document.getElementById("subGroupFilter").value;
 
     const filtered = allVolunteers.filter(v => {
-      // 🟢 序號 (id) 與姓名 (name) 雙向搜尋支援
       const matchSearch = String(v.id).toLowerCase().includes(search) || 
                           v.name.toLowerCase().includes(search);
                           
@@ -267,7 +268,7 @@ html_content = """<!DOCTYPE html>
             </span>
           </td>
           <td>
-            <select class="form-select form-select-sm" id="meal_${v.rowIndex}">
+            <select class="form-select form-select-sm" id="meal_${v.rowIndex}" onchange="updateMealLocal(${v.rowIndex}, this.value)">
               <option value="便當" ${currentMeal === '便當' ? 'selected' : ''}>便當</option>
               <option value="餐券" ${currentMeal === '餐券' ? 'selected' : ''}>餐券</option>
               <option value="不用餐" ${currentMeal === '不用餐' ? 'selected' : ''}>不用餐</option>
@@ -284,11 +285,37 @@ html_content = """<!DOCTYPE html>
     }).join('');
   }
 
-  // 處理點擊報到 / 取消報到
+  // 當用餐選單改變時，先更新記憶體
+  function updateMealLocal(rowIndex, newMeal) {
+    const date = document.getElementById("dateSelect").value;
+    const item = allVolunteers.find(v => v.rowIndex === rowIndex);
+    if (item) {
+      if (date === '8/22') item.meal822 = newMeal;
+      else item.meal823 = newMeal;
+    }
+  }
+
+  // ⚡ 優化：即時局部更新，不重抓資料、保留搜尋與篩選狀態
   function handleCheckIn(rowIndex, checkInStatus) {
     const date = document.getElementById("dateSelect").value;
     const meal = document.getElementById(`meal_${rowIndex}`).value;
 
+    // 1. 先即時更新本地記憶體中的狀態
+    const item = allVolunteers.find(v => v.rowIndex === rowIndex);
+    if (item) {
+      if (date === '8/22') {
+        item.checkIn822 = checkInStatus ? '已報到' : '未報到';
+        item.meal822 = meal;
+      } else {
+        item.checkIn823 = checkInStatus ? '已報到' : '未報到';
+        item.meal823 = meal;
+      }
+    }
+
+    // 2. 立即重繪畫面（完全保留當前的搜尋條件與下拉選單狀態）
+    renderList();
+
+    // 3. 背景將資料發送到後端，不干擾使用者操作
     fetch(GAS_URL, {
       method: 'POST',
       body: JSON.stringify({
@@ -301,43 +328,59 @@ html_content = """<!DOCTYPE html>
     })
     .then(res => res.json())
     .then(res => {
-      if(res.status === 'success') {
-        loadVolunteers();
-      } else {
-        alert("更新失敗：" + (res.message || "請重試"));
+      if(res.status !== 'success') {
+        alert("背景同步失敗，請再試一次");
       }
     })
-    .catch(err => alert("連線失敗，請檢查網路"));
+    .catch(err => alert("網路連線不穩定，狀態可能未寫回雲端"));
   }
 
-  // 處理現場新增義工
+  // ⚡ 優化：現場新增義工後保留目前篩選，並在本地加入新資料
   function submitNewVolunteer() {
     const date = document.getElementById("dateSelect").value;
-    const data = {
-      action: 'addVolunteer',
-      name: document.getElementById("addName").value.trim(),
-      groupMain: document.getElementById("addMainGroup").value.trim(),
-      groupSub: document.getElementById("addSubGroup").value.trim(),
-      meal: document.getElementById("addMeal").value,
-      date: date
-    };
+    const name = document.getElementById("addName").value.trim();
+    const groupMain = document.getElementById("addMainGroup").value.trim();
+    const groupSub = document.getElementById("addSubGroup").value.trim();
+    const meal = document.getElementById("addMeal").value;
 
-    if(!data.name || !data.groupMain || !data.groupSub) {
+    if(!name || !groupMain || !groupSub) {
       alert("請填寫所有必填欄位！");
       return;
     }
 
     fetch(GAS_URL, {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify({
+        action: 'addVolunteer',
+        name, groupMain, groupSub, meal, date
+      })
     })
     .then(res => res.json())
     .then(res => {
       if(res.status === 'success') {
         alert(`新增成功！已自動給予序號：${res.id}`);
+        
+        // 算出試算表中的新 rowIndex
+        const maxRowIndex = allVolunteers.length > 0 ? Math.max(...allVolunteers.map(v => v.rowIndex)) : 1;
+        
+        // 將新資料加入 local 記憶體
+        allVolunteers.push({
+          rowIndex: maxRowIndex + 1,
+          id: res.id,
+          name: name,
+          groupMain: groupMain,
+          groupSub: groupSub,
+          checkIn822: date === '8/22' ? '已報到' : '未報到',
+          meal822: date === '8/22' ? meal : '不用餐',
+          checkIn823: date === '8/23' ? '已報到' : '未報到',
+          meal823: date === '8/23' ? meal : '不用餐'
+        });
+
         bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
         document.getElementById("addForm").reset();
-        loadVolunteers();
+
+        // 更新下拉選項並重繪（保持現有選擇狀態）
+        setupGroupFilters();
       } else {
         alert("新增失敗：" + (res.message || "請重試"));
       }
@@ -348,9 +391,3 @@ html_content = """<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-"""
-
-with open("index.html", "w", encoding="utf-8") as f:
-    f.write(html_content)
-
-print("index.html successfully created.")
